@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Editor Visual SMW - BG/FG Tool</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Press Start 2P', cursive;
+      background: #1e1e2f;
+      color: white;
+    }
+    header {
+      background: #2b2b40;
+      padding: 10px;
+      text-align: center;
+    }
+    canvas {
+      border: 1px solid #ccc;
+      image-rendering: pixelated;
+    }
+    #panel {
+      display: flex;
+      justify-content: space-around;
+      padding: 10px;
+      background: #303045;
+    }
+    .panel-section {
+      margin: 0 10px;
+    }
+    input[type="file"] {
+      display: none;
+    }
+    label {
+      background: #444;
+      padding: 5px 10px;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    button {
+      margin-top: 5px;
+      padding: 5px 10px;
+      border: none;
+      background: #5a5aff;
+      color: white;
+      cursor: pointer;
+      border-radius: 5px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Editor Visual SMW</h1>
+    <p>Compatible con Lunar Magic (Ripping BG/FG)</p>
+  </header>
+  <div id="panel">
+    <div class="panel-section">
+      <label for="imgLoader">📁 Cargar Imagen</label>
+      <input type="file" id="imgLoader" accept="image/*" />
+      <br />
+      <button onclick="exportImage('bg')">Exportar BG</button>
+      <button onclick="exportImage('fg')">Exportar FG</button>
+    </div>
+    <div class="panel-section">
+      <button onclick="fillCanvas()">🪄 Rellenar</button>
+      <button onclick="clearCanvas()">🧹 Limpiar</button>
+    </div>
+  </div>
+  <canvas id="editorCanvas" width="512" height="512"></canvas>
+  <script>
+    const canvas = document.getElementById('editorCanvas');
+    const ctx = canvas.getContext('2d');
+
+    const imgLoader = document.getElementById('imgLoader');
+    imgLoader.addEventListener('change', handleImage);
+
+    function handleImage(e) {
+      const reader = new FileReader();
+      reader.onload = function (event) {
+        const img = new Image();
+        img.onload = function () {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        };
+        img.src = event.target.result;
+      };
+      reader.readAsDataURL(e.target.files[0]);
+    }
+
+    function fillCanvas() {
+      ctx.fillStyle = '#000';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+
+    function clearCanvas() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+
+    function exportImage(type) {
+      const tempCanvas = document.createElement('canvas');
+      const size = type === 'bg' ? 512 : 256;
+      tempCanvas.width = size;
+      tempCanvas.height = size;
+      const tempCtx = tempCanvas.getContext('2d');
+      tempCtx.drawImage(canvas, 0, 0, size, size);
+
+      // Convert to indexed color using dithering (simulado para exportación)
+      const imgData = tempCtx.getImageData(0, 0, size, size);
+      const data = imgData.data;
+      for (let i = 0; i < data.length; i += 4) {
+        data[i] = Math.floor(data[i] / 16) * 16;
+        data[i + 1] = Math.floor(data[i + 1] / 16) * 16;
+        data[i + 2] = Math.floor(data[i + 2] / 16) * 16;
+      }
+      tempCtx.putImageData(imgData, 0, 0);
+
+      const link = document.createElement('a');
+      link.download = type + '_compatible.png';
+      link.href = tempCanvas.toDataURL('image/png');
+      link.click();
+    }
+  </script>
+</body>
+</html>
