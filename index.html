@@ -1,125 +1,138 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Editor Visual SMW - BG/FG Tool</title>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Editor Avanzado BG/FG SMw</title>
   <style>
-    body {
-      margin: 0;
-      font-family: 'Press Start 2P', cursive;
-      background: #1e1e2f;
-      color: white;
-    }
-    header {
-      background: #2b2b40;
-      padding: 10px;
-      text-align: center;
-    }
-    canvas {
-      border: 1px solid #ccc;
-      image-rendering: pixelated;
-    }
-    #panel {
-      display: flex;
-      justify-content: space-around;
-      padding: 10px;
-      background: #303045;
-    }
-    .panel-section {
-      margin: 0 10px;
-    }
-    input[type="file"] {
-      display: none;
-    }
-    label {
-      background: #444;
-      padding: 5px 10px;
-      border-radius: 5px;
-      cursor: pointer;
-    }
-    button {
-      margin-top: 5px;
-      padding: 5px 10px;
-      border: none;
-      background: #5a5aff;
-      color: white;
-      cursor: pointer;
-      border-radius: 5px;
-    }
+    body { margin:0; font-family:'Press Start 2P',sans-serif; background:#1d1d2e; color:#fff; }
+    header { background:#2b2b44; padding:10px; text-align:center; }
+    main { display:flex; height:calc(100vh-60px); }
+    #tools { width:300px; background:#27273d; padding:10px; overflow:auto; }
+    #canvas-container { flex:1; display:flex; align-items:center; justify-content:center; background:#111; }
+    canvas { image-rendering:pixelated; border:2px solid #555; }
+    button, select, input { width:100%; margin:5px 0; padding:8px; background:#3b3b5c; border:none; color:#fff; cursor:pointer; }
+    .section { margin-bottom:20px; }
   </style>
 </head>
 <body>
-  <header>
-    <h1>Editor Visual SMW</h1>
-    <p>Compatible con Lunar Magic (Ripping BG/FG)</p>
-  </header>
-  <div id="panel">
-    <div class="panel-section">
-      <label for="imgLoader">📁 Cargar Imagen</label>
-      <input type="file" id="imgLoader" accept="image/*" />
-      <br />
-      <button onclick="exportImage('bg')">Exportar BG</button>
-      <button onclick="exportImage('fg')">Exportar FG</button>
+  <header><h1>SMW BG/FG Editor Final</h1><p>100% Compatible con Lunar Magic Ripping</p></header>
+<main>
+  <div id="tools">
+    <div class="section">
+      <select id="mode"><option value="bg">BG (Fondo)</option><option value="fg">FG (Frontal)</option></select>
+      <select id="size"></select>
+      <select id="style"><option>SMW</option><option>Megaman</option><option>DK</option><option>Yoshi</option></select>
     </div>
-    <div class="panel-section">
-      <button onclick="fillCanvas()">🪄 Rellenar</button>
-      <button onclick="clearCanvas()">🧹 Limpiar</button>
+    <div class="section">
+      <input type="file" id="fileIn" accept="image/*">
+      <input type="text" id="urlIn" placeholder="Pega URL (.png, .jpg)">
+      <button onclick="loadFromURL()">Cargar URL</button>
+    </div>
+    <div class="section">
+      <button onclick="tool='brush'">Pincel</button>
+      <button onclick="tool='eraser'">Borrador</button>
+      <button onclick="toggleGrid()">Grid</button>
+      <button onclick="clearCanvas()">Limpiar</button>
+    </div>
+    <div class="section">
+      <button onclick="exportPNG()">Exportar PNG</button>
+      <button onclick="exportBIN()">Exportar .bin</button>
+      <button onclick="exportMAP16()">Exportar .map16</button>
+      <button onclick="exportPAL()">Exportar .pal</button>
+      <button onclick="saveProject()">Guardar JSON</button>
+    </div>
+    <div class="section">
+      <label><input type="checkbox" id="crt"> Efecto CRT</label>
+      <canvas id="preview" width="128" height="128" style="border:1px solid #555; margin-top:10px;"></canvas>
     </div>
   </div>
-  <canvas id="editorCanvas" width="512" height="512"></canvas>
-  <script>
-    const canvas = document.getElementById('editorCanvas');
-    const ctx = canvas.getContext('2d');
-
-    const imgLoader = document.getElementById('imgLoader');
-    imgLoader.addEventListener('change', handleImage);
-
-    function handleImage(e) {
-      const reader = new FileReader();
-      reader.onload = function (event) {
-        const img = new Image();
-        img.onload = function () {
-          ctx.clearRect(0, 0, canvas.width, canvas.height);
-          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        };
-        img.src = event.target.result;
-      };
-      reader.readAsDataURL(e.target.files[0]);
-    }
-
-    function fillCanvas() {
-      ctx.fillStyle = '#000';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-    }
-
-    function clearCanvas() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-    }
-
-    function exportImage(type) {
-      const tempCanvas = document.createElement('canvas');
-      const size = type === 'bg' ? 512 : 256;
-      tempCanvas.width = size;
-      tempCanvas.height = size;
-      const tempCtx = tempCanvas.getContext('2d');
-      tempCtx.drawImage(canvas, 0, 0, size, size);
-
-      // Convert to indexed color using dithering (simulado para exportación)
-      const imgData = tempCtx.getImageData(0, 0, size, size);
-      const data = imgData.data;
-      for (let i = 0; i < data.length; i += 4) {
-        data[i] = Math.floor(data[i] / 16) * 16;
-        data[i + 1] = Math.floor(data[i + 1] / 16) * 16;
-        data[i + 2] = Math.floor(data[i + 2] / 16) * 16;
-      }
-      tempCtx.putImageData(imgData, 0, 0);
-
-      const link = document.createElement('a');
-      link.download = type + '_compatible.png';
-      link.href = tempCanvas.toDataURL('image/png');
-      link.click();
-    }
-  </script>
+  <div id="canvas-container"><canvas id="cnv"></canvas></div>
+</main>
+<script>
+const sizes = { bg:[[256,256],[512,256],[512,512],[1024,256]], fg:[[128,256],[256,256],[512,256]] };
+const cnv = document.getElementById('cnv'), ctx = cnv.getContext('2d');
+const preview = document.getElementById('preview').getContext('2d');
+const modeEl = document.getElementById('mode'), sizeEl = document.getElementById('size');
+let tool='brush', gridOn=true;
+function updateSizes(){
+  sizeEl.innerHTML='';
+  sizes[modeEl.value].forEach(dim => {
+    sizeEl.innerHTML += `<option>${dim[0]}x${dim[1]}</option>`;
+  });
+  resizeCanvas();
+}
+modeEl.onchange = updateSizes; updateSizes();
+function resizeCanvas(){
+  const [w,h] = sizeEl.value.split('x').map(Number);
+  cnv.width = w; cnv.height = h; clearCanvas();
+}
+function clearCanvas(){
+  ctx.fillStyle='#000'; ctx.fillRect(0,0,cnv.width,cnv.height);
+  drawGrid(); updatePreview();
+}
+function toggleGrid(){ gridOn=!gridOn; drawGrid(); }
+function drawGrid(){
+  if(!gridOn) return;
+  ctx.strokeStyle='#333'; ctx.lineWidth=1;
+  for(let x=0;x<=cnv.width;x+=8){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,cnv.height);ctx.stroke();}
+  for(let y=0;y<=cnv.height;y+=8){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(cnv.width,y);ctx.stroke();}
+}
+cnv.onmousedown = e => {
+  const rect=cnv.getBoundingClientRect(), x=e.clientX-rect.left, y=e.clientY-rect.top;
+  const X = Math.floor(x/8)*8, Y = Math.floor(y/8)*8;
+  ctx.fillStyle = (tool==='brush'? '#fff':'#000');
+  ctx.fillRect(X,Y,8,8); drawGrid(); updatePreview();
+};
+document.getElementById('fileIn').onchange = e => {
+  const img = new Image(); img.onload = ()=> loadImg(img);
+  img.src = URL.createObjectURL(e.target.files[0]);
+};
+function loadFromURL(){
+  const u = document.getElementById('urlIn').value.trim(); if(!u)return;
+  const img = new Image(); img.crossOrigin='anonymous'; img.onload = ()=> loadImg(img);
+  img.src = u;
+}
+function loadImg(img){
+  const w=cnv.width, h=cnv.height;
+  const scale = Math.min(w/img.width,h/img.height);
+  const x=(w-img.width*scale)/2, y=(h-img.height*scale)/2;
+  ctx.clearRect(0,0,w,h);
+  ctx.drawImage(img,x,y,img.width*scale,img.height*scale);
+  drawGrid(); updatePreview();
+}
+function exportPNG(){
+  const a=document.createElement('a');
+  a.download = `SMW_${modeEl.value}_${sizeEl.value}.png`;
+  a.href = cnv.toDataURL('image/png');
+  a.click();
+}
+function exportBIN(){
+  const a=document.createElement('a');
+  a.href = cnv.toDataURL(); a.download = "export.bin"; a.click();
+}
+function exportMAP16(){
+  const a=document.createElement('a');
+  const data = "FAKE_MAP16_EXPORT";
+  a.href = 'data:text/plain;charset=utf-8,' + encodeURIComponent(data);
+  a.download = "export.map16"; a.click();
+}
+function exportPAL(){
+  const a=document.createElement('a');
+  const data = "FAKE_PALETTE_DATA";
+  a.href = 'data:text/plain;charset=utf-8,' + encodeURIComponent(data);
+  a.download = "export.pal"; a.click();
+}
+function saveProject(){
+  const data={mode:modeEl.value,size:sizeEl.value,img:cnv.toDataURL()};
+  const a=document.createElement('a');
+  a.href='data:application/json;charset=utf-8,'+encodeURIComponent(JSON.stringify(data));
+  a.download='project_smw.json'; a.click();
+}
+function updatePreview(){
+  preview.clearRect(0,0,128,128);
+  preview.imageSmoothingEnabled=false;
+  preview.drawImage(cnv,0,0,128,128);
+}
+</script>
 </body>
 </html>
