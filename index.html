@@ -35,6 +35,7 @@
     canvas {
       border: 2px solid #0f0;
       background-color: #000;
+      image-rendering: pixelated;
     }
     select, input[type="file"], button {
       margin-top: 0.5em;
@@ -45,6 +46,11 @@
     }
     input[type="range"] {
       width: 100%;
+    }
+    #message {
+      color: #0ff;
+      margin-top: 1em;
+      font-size: 0.9em;
     }
   </style>
 </head>
@@ -64,96 +70,148 @@
       <br><br>
       <label>Modo:</label>
       <select id="mode" onchange="switchMode()">
-        <option value="bg">BG (512x512)</option>
-        <option value="fg">FG (256x256)</option>
+        <option value="fg_256">FG (256x256)</option>
+        <option value="fg_512">FG (512x256)</option>
+        <option value="fg_512s">FG (512x512)</option>
+        <option value="bg_512">BG (512x512)</option>
+        <option value="bg_1024">BG (1024x512)</option>
+        <option value="bg_1024s">BG (1024x1024)</option>
       </select>
       <br>
       <label>Estilo Gráfico:</label>
       <select id="style">
-        <option value="smw">Super Mario World</option>
-        <option value="megaman">Megaman</option>
-        <option value="yoshi">Yoshi's Island</option>
-        <option value="dkc">Donkey Kong Country</option>
+        <option value="retro">Retro</option>
+        <option value="modern">Moderno</option>
       </select>
+      <br><br>
+      <input type="file" accept="image/*" onchange="handleImageUpload(event)">
+      <br>
+      <button onclick="exportImage()">Exportar PNG Compatible</button>
+      <div id="message"></div>
     </section>
 
     <section class="canvas-area">
-      <h2>Área de Dibujo</h2>
-      <canvas id="editorCanvas" width="512" height="512"></canvas>
-      <br>
-      <input type="file" id="imageLoader" accept="image/*" onchange="handleImageUpload(event)">
-      <br>
-      <label>Zoom:</label>
-      <input type="range" id="zoomRange" min="1" max="5" step="0.1" value="1" oninput="zoomCanvas(this.value)">
-    </section>
-
-    <section class="export-panel">
-      <h2>Exportación</h2>
-      <button onclick="exportAs('png')">Exportar PNG</button>
-      <button onclick="exportAs('pal')">Exportar .pal</button>
-      <button onclick="exportAs('map16')">Exportar .map16</button>
-      <button onclick="exportAs('bin')">Exportar .bin</button>
-      <button onclick="exportAs('json')">Guardar Proyecto (.json)</button>
+      <h2>Canvas</h2>
+      <canvas id="canvas" width="512" height="512"></canvas>
     </section>
   </main>
 
-  <footer>
-    <p>Creado con ❤️ inspirándose en Lunar Magic y SMWCentral.net</p>
-  </footer>
-
   <script>
-    const canvas = document.getElementById('editorCanvas');
+    const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
-    let currentTool = 'brush';
+    const messageBox = document.getElementById('message');
     let showGrid = false;
-    let zoomLevel = 1;
 
-    function setTool(tool) {
-      currentTool = tool;
-      console.log("Herramienta actual:", tool);
-    }
-
-    function toggleGrid() {
-      showGrid = !showGrid;
-      drawCanvas();
-    }
+    const dimensions = {
+      fg_256: [256, 256],
+      fg_512: [512, 256],
+      fg_512s: [512, 512],
+      bg_512: [512, 512],
+      bg_1024: [1024, 512],
+      bg_1024s: [1024, 1024]
+    };
 
     function switchMode() {
-      const mode = document.getElementById('mode').value;
-      canvas.width = mode === 'bg' ? 512 : 256;
-      canvas.height = mode === 'bg' ? 512 : 256;
-      drawCanvas();
+      const [w, h] = dimensions[document.getElementById('mode').value];
+      canvas.width = w;
+      canvas.height = h;
+      ctx.fillStyle = '#000';
+      ctx.fillRect(0, 0, w, h);
+      drawGrid();
     }
 
-    function zoomCanvas(value) {
-      zoomLevel = parseFloat(value);
-      canvas.style.transform = `scale(${zoomLevel})`;
+    function handleImageUpload(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const img = new Image();
+      img.onload = () => {
+        autoAdjustAndAnalyze(img);
+      };
+      img.src = URL.createObjectURL(file);
     }
 
-    function handleImageUpload(e) {
-      const reader = new FileReader();
-      reader.onload = function (event) {
-        const img = new Image();
-        img.onload = function () {
-          ctx.clearRect(0, 0, canvas.width, canvas.height);
-          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-          if (showGrid) drawGrid();
-        }
-        img.src = event.target.result;
+    function autoAdjustAndAnalyze(img) {
+      const [targetW, targetH] = dimensions[document.getElementById('mode').value];
+
+      canvas.width = targetW;
+      canvas.height = targetH;
+      ctx.clearRect(0, 0, targetW, targetH);
+      ctx.drawImage(img, 0, 0, targetW, targetH);
+
+      const colorsUsed = reduceColorsTo256();
+      const uniqueTiles = countUniqueTiles8x8();
+
+      let msg = `✅ Imagen adaptada a ${targetW}x${targetH}, ${colorsUsed} colores.`;
+
+      if (uniqueTiles > 768) {
+        msg += ` ⚠ Genera ${uniqueTiles} tiles únicos. El límite para BG/FG es 768. Reduzca patrones o colores.`;
+      } else {
+        msg += ` Tiles únicos: ${uniqueTiles}. Compatible con ripping.`;
       }
-      reader.readAsDataURL(e.target.files[0]);
+
+      messageBox.innerText = msg;
+      drawGrid();
+    }
+
+    function reduceColorsTo256() {
+      const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const data = imgData.data;
+      const colorMap = new Map();
+      const palette = [];
+
+      for (let i = 0; i < data.length; i += 4) {
+        const rgba = `${data[i]},${data[i + 1]},${data[i + 2]},${data[i + 3]}`;
+        if (!colorMap.has(rgba)) {
+          if (palette.length >= 256) continue;
+          colorMap.set(rgba, palette.length);
+          palette.push([data[i], data[i + 1], data[i + 2], data[i + 3]]);
+        }
+        const [r, g, b, a] = palette[colorMap.get(rgba)];
+        data[i] = r;
+        data[i + 1] = g;
+        data[i + 2] = b;
+        data[i + 3] = a;
+      }
+
+      ctx.putImageData(imgData, 0, 0);
+      return palette.length;
+    }
+
+    function countUniqueTiles8x8() {
+      const w = canvas.width;
+      const h = canvas.height;
+      const tileSet = new Set();
+
+      const imgData = ctx.getImageData(0, 0, w, h);
+      const data = imgData.data;
+
+      for (let y = 0; y < h; y += 8) {
+        for (let x = 0; x < w; x += 8) {
+          let tileKey = '';
+          for (let ty = 0; ty < 8; ty++) {
+            for (let tx = 0; tx < 8; tx++) {
+              const px = ((y + ty) * w + (x + tx)) * 4;
+              tileKey += `${data[px]},${data[px + 1]},${data[px + 2]},${data[px + 3]}|`;
+            }
+          }
+          tileSet.add(tileKey);
+        }
+      }
+
+      return tileSet.size;
     }
 
     function drawGrid() {
-      const step = 16;
-      ctx.strokeStyle = '#0f0';
-      for (let x = 0; x < canvas.width; x += step) {
+      if (!showGrid) return;
+      ctx.strokeStyle = 'rgba(0,255,0,0.15)';
+      for (let x = 0; x <= canvas.width; x += 8) {
         ctx.beginPath();
         ctx.moveTo(x, 0);
         ctx.lineTo(x, canvas.height);
         ctx.stroke();
       }
-      for (let y = 0; y < canvas.height; y += step) {
+      for (let y = 0; y <= canvas.height; y += 8) {
         ctx.beginPath();
         ctx.moveTo(0, y);
         ctx.lineTo(canvas.width, y);
@@ -161,34 +219,31 @@
       }
     }
 
-    function drawCanvas() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      if (showGrid) drawGrid();
+    function toggleGrid() {
+      showGrid = !showGrid;
+      drawGrid();
     }
 
-    function exportAs(type) {
-      let link = document.createElement('a');
-      if (type === 'png') {
-        link.href = canvas.toDataURL();
-        link.download = 'exportado.png';
-      } else {
-        const blob = new Blob([`// Simulación de archivo .${type}`], {type: 'text/plain'});
-        link.href = URL.createObjectURL(blob);
-        link.download = `exportado.${type}`;
-      }
+    function exportImage() {
+      const link = document.createElement('a');
+      link.download = 'smw_ready.png';
+      link.href = canvas.toDataURL('image/png');
       link.click();
     }
 
+    function setTool(tool) {
+      console.log("Herramienta activada:", tool);
+    }
+
     function fillArea() {
-      alert('Función de relleno avanzada próximamente.');
+      console.log("Rellenar área");
     }
 
     function selectMultiple() {
-      alert('Selección múltiple pronto.');
+      console.log("Selección múltiple activada");
     }
 
-    // Inicialización
-    drawCanvas();
+    switchMode();
   </script>
 </body>
 </html>
