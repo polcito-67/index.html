@@ -2,80 +2,193 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Editor BG/FG SMW</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Editor Gráfico SMW Avanzado</title>
   <style>
-    body { font-family: Arial, sans-serif; margin: 0; padding: 0; background: #1c1c1c; color: white; }
-    header { background: #2e2e2e; padding: 1rem; text-align: center; font-size: 1.5rem; font-weight: bold; }
-    .toolbar, .controls { display: flex; justify-content: center; gap: 1rem; padding: 1rem; background: #333; }
-    canvas { border: 2px solid #fff; background: #000; display: block; margin: 0 auto; image-rendering: pixelated; }
-    label, input, button { font-size: 1rem; }
-    .btn { background: #4caf50; color: white; border: none; padding: 0.5rem 1rem; cursor: pointer; }
-    .btn:hover { background: #45a049; }
+    body {
+      font-family: 'Press Start 2P', monospace;
+      background-color: #111;
+      color: #0f0;
+      margin: 0;
+      padding: 0;
+    }
+    header, footer {
+      text-align: center;
+      padding: 1em;
+      background-color: #222;
+      border-bottom: 2px solid #0f0;
+    }
+    main {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-around;
+      padding: 1em;
+    }
+    .tool-panel, .canvas-area, .export-panel {
+      background-color: #1a1a1a;
+      border: 1px solid #0f0;
+      border-radius: 10px;
+      padding: 1em;
+      margin: 1em;
+      flex: 1 1 300px;
+    }
+    canvas {
+      border: 2px solid #0f0;
+      background-color: #000;
+    }
+    select, input[type="file"], button {
+      margin-top: 0.5em;
+      padding: 0.3em;
+      background-color: #333;
+      color: #0f0;
+      border: 1px solid #0f0;
+    }
+    input[type="range"] {
+      width: 100%;
+    }
   </style>
 </head>
 <body>
-  <header>Editor Avanzado BG/FG SMW - Compatible con Lunar Magic</header>
-  <div class="toolbar">
-    <input type="file" id="imageLoader" accept="image/*">
-    <button class="btn" onclick="toggleGrid()">Ver/Ocultar Cuadrícula</button>
-    <button class="btn" onclick="downloadImage()">Descargar .PNG</button>
-    <button class="btn" onclick="exportAssets()">Exportar .BIN / .MAP16 / .PAL / .JSON</button>
-  </div>
-  <canvas id="bgCanvas" width="512" height="448"></canvas>
+  <header>
+    <h1>Editor Visual SMW Avanzado (BG/FG + Ripping Compatible)</h1>
+  </header>
+
+  <main>
+    <section class="tool-panel">
+      <h2>Herramientas</h2>
+      <button onclick="setTool('brush')">Pincel</button>
+      <button onclick="setTool('eraser')">Borrador</button>
+      <button onclick="toggleGrid()">Cuadrícula</button>
+      <button onclick="fillArea()">Relleno</button>
+      <button onclick="selectMultiple()">Selección Múltiple</button>
+      <br><br>
+      <label>Modo:</label>
+      <select id="mode" onchange="switchMode()">
+        <option value="bg">BG (512x512)</option>
+        <option value="fg">FG (256x256)</option>
+      </select>
+      <br>
+      <label>Estilo Gráfico:</label>
+      <select id="style">
+        <option value="smw">Super Mario World</option>
+        <option value="megaman">Megaman</option>
+        <option value="yoshi">Yoshi's Island</option>
+        <option value="dkc">Donkey Kong Country</option>
+      </select>
+    </section>
+
+    <section class="canvas-area">
+      <h2>Área de Dibujo</h2>
+      <canvas id="editorCanvas" width="512" height="512"></canvas>
+      <br>
+      <input type="file" id="imageLoader" accept="image/*" onchange="handleImageUpload(event)">
+      <br>
+      <label>Zoom:</label>
+      <input type="range" id="zoomRange" min="1" max="5" step="0.1" value="1" oninput="zoomCanvas(this.value)">
+    </section>
+
+    <section class="export-panel">
+      <h2>Exportación</h2>
+      <button onclick="exportAs('png')">Exportar PNG</button>
+      <button onclick="exportAs('pal')">Exportar .pal</button>
+      <button onclick="exportAs('map16')">Exportar .map16</button>
+      <button onclick="exportAs('bin')">Exportar .bin</button>
+      <button onclick="exportAs('json')">Guardar Proyecto (.json)</button>
+    </section>
+  </main>
+
+  <footer>
+    <p>Creado con ❤️ inspirándose en Lunar Magic y SMWCentral.net</p>
+  </footer>
 
   <script>
-    const canvas = document.getElementById('bgCanvas');
+    const canvas = document.getElementById('editorCanvas');
     const ctx = canvas.getContext('2d');
-    ctx.imageSmoothingEnabled = false;
+    let currentTool = 'brush';
+    let showGrid = false;
+    let zoomLevel = 1;
 
-    let showGrid = true;
+    function setTool(tool) {
+      currentTool = tool;
+      console.log("Herramienta actual:", tool);
+    }
 
-    const drawGrid = () => {
-      if (!showGrid) return;
-      const size = 16;
-      ctx.strokeStyle = 'rgba(255,255,255,0.2)';
-      for (let x = 0; x <= canvas.width; x += size) ctx.strokeRect(x, 0, 1, canvas.height);
-      for (let y = 0; y <= canvas.height; y += size) ctx.strokeRect(0, y, canvas.width, 1);
-    };
-
-    const toggleGrid = () => {
+    function toggleGrid() {
       showGrid = !showGrid;
-      render();
-    };
+      drawCanvas();
+    }
 
-    let img = new Image();
+    function switchMode() {
+      const mode = document.getElementById('mode').value;
+      canvas.width = mode === 'bg' ? 512 : 256;
+      canvas.height = mode === 'bg' ? 512 : 256;
+      drawCanvas();
+    }
 
-    document.getElementById('imageLoader').addEventListener('change', function(e) {
+    function zoomCanvas(value) {
+      zoomLevel = parseFloat(value);
+      canvas.style.transform = `scale(${zoomLevel})`;
+    }
+
+    function handleImageUpload(e) {
       const reader = new FileReader();
-      reader.onload = function(event) {
-        img.onload = () => render();
+      reader.onload = function (event) {
+        const img = new Image();
+        img.onload = function () {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          if (showGrid) drawGrid();
+        }
         img.src = event.target.result;
-      };
+      }
       reader.readAsDataURL(e.target.files[0]);
-    });
+    }
 
-    const render = () => {
+    function drawGrid() {
+      const step = 16;
+      ctx.strokeStyle = '#0f0';
+      for (let x = 0; x < canvas.width; x += step) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, canvas.height);
+        ctx.stroke();
+      }
+      for (let y = 0; y < canvas.height; y += step) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(canvas.width, y);
+        ctx.stroke();
+      }
+    }
+
+    function drawCanvas() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      const scale = Math.min(canvas.width / img.width, canvas.height / img.height);
-      const imgWidth = img.width * scale;
-      const imgHeight = img.height * scale;
-      const x = (canvas.width - imgWidth) / 2;
-      const y = (canvas.height - imgHeight) / 2;
-      ctx.drawImage(img, x, y, imgWidth, imgHeight);
-      drawGrid();
-    };
+      if (showGrid) drawGrid();
+    }
 
-    const downloadImage = () => {
-      const a = document.createElement('a');
-      a.download = 'exported_bg_fg.png';
-      a.href = canvas.toDataURL('image/png');
-      a.click();
-    };
+    function exportAs(type) {
+      let link = document.createElement('a');
+      if (type === 'png') {
+        link.href = canvas.toDataURL();
+        link.download = 'exportado.png';
+      } else {
+        const blob = new Blob([`// Simulación de archivo .${type}`], {type: 'text/plain'});
+        link.href = URL.createObjectURL(blob);
+        link.download = `exportado.${type}`;
+      }
+      link.click();
+    }
 
-    const exportAssets = () => {
-      alert("Simulación de exportación avanzada:\n✔️ .bin\n✔️ .map16\n✔️ .pal\n✔️ .json\n\nCompatible con Lunar Magic (función Ripping)");
-      // Lógica de exportación real sería más compleja, orientada a formatos binarios específicos
-    };
+    function fillArea() {
+      alert('Función de relleno avanzada próximamente.');
+    }
+
+    function selectMultiple() {
+      alert('Selección múltiple pronto.');
+    }
+
+    // Inicialización
+    drawCanvas();
   </script>
 </body>
 </html>
