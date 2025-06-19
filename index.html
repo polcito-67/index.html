@@ -58,7 +58,7 @@
 </head>
 <body>
   <header>
-    <h1>Editor Visual SMW Avanzado (Optimizado para Ripping)</h1>
+    <h1>Editor Visual SMW Avanzado (Compatible Ripping)</h1>
   </header>
 
   <main>
@@ -202,29 +202,38 @@
       }
 
       const colorSet = new Set();
-      const data = imgData.data;
-      for (let i = 0; i < data.length; i += 4) {
-        const r = data[i] >> 3;
-        const g = data[i + 1] >> 3;
-        const b = data[i + 2] >> 3;
-        colorSet.add(`${r},${g},${b}`);
+      const tileTooColorful = [];
+      for (let obj of limitedTiles) {
+        const d = obj.tile.data;
+        const localColors = new Set();
+        for (let i = 0; i < d.length; i += 4) {
+          const r = d[i] >> 3;
+          const g = d[i + 1] >> 3;
+          const b = d[i + 2] >> 3;
+          localColors.add(`${r},${g},${b}`);
+        }
+        if (localColors.size > 16) tileTooColorful.push(localColors.size);
+        localColors.forEach(c => colorSet.add(c));
       }
 
       const warnings = [];
       if (limitedTiles.length > 768) {
-        warnings.push(`⚠ Se encontraron ${limitedTiles.length} tiles. Se mostrarán solo los primeros 768.`);
+        warnings.push(`⚠ Se encontraron ${limitedTiles.length} tiles. Solo se mostrarán los primeros 768.`);
       }
       if (colorSet.size > 256) {
-        warnings.push(`⚠ La imagen tiene ${colorSet.size} colores (reducida a ${quantSlider.value}-bit). SMW permite 256 máximo.`);
+        warnings.push(`⚠ Imagen tiene ${colorSet.size} colores únicos. SMW permite máx 256.`);
+      }
+      if (tileTooColorful.length) {
+        warnings.push(`⚠ ${tileTooColorful.length} tiles tienen más de 16 colores (no compatibles con SNES 4bpp).`);
       }
 
-      messageBox.innerText = `🧩 Tiles: ${limitedTiles.length}\n🎨 Colores únicos: ${colorSet.size}\n` + (warnings.length ? warnings.join('\n') : '✅ Compatible con ripping SMW');
+      messageBox.innerText = `🧩 Tiles: ${limitedTiles.length}\n🎨 Colores únicos: ${colorSet.size}\n` + (warnings.length ? warnings.join('\n') : '✅ Imagen compatible con Lunar Magic');
     }
 
     function optimizeImage() {
       simplifyImageColors();
       extractPriorityTiles();
-      alert("Imagen optimizada con reducción de colores y verificación de tiles únicos.");
+      alert("Imagen optimizada con colores limitados y tiles compatibles.");
     }
 
     function exportCanvasPNG() {
@@ -239,6 +248,11 @@
       link.download = 'tiles_prioritarios.png';
       link.href = tileCanvas.toDataURL('image/png');
       link.click();
+    }
+
+    function toggleGrid() {
+      showGrid = !showGrid;
+      drawGrid();
     }
 
     switchMode();
