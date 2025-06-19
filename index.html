@@ -78,6 +78,7 @@
       <button onclick="toggleGrid()">Cuadrícula 8x8</button>
       <button onclick="optimizeImage()">Optimizar Imagen</button>
       <button onclick="exportCanvasPNG()">Exportar PNG</button>
+      <button onclick="exportTileCanvasPNG()">Descargar Tiles Únicos</button>
       <button onclick="exportRippingData()">Exportar .bin + .map16 + .pal</button>
       <div id="message"></div>
     </section>
@@ -171,18 +172,20 @@
       const h = canvas.height;
       const tileSet = new Map();
       const tileSize = 16;
-      let tileId = 0;
 
       for (let y = 0; y <= h - tileSize; y += tileSize) {
         for (let x = 0; x <= w - tileSize; x += tileSize) {
           const tile = ctx.getImageData(x, y, tileSize, tileSize);
           const key = Array.from(tile.data).join(',');
-          if (!tileSet.has(key)) tileSet.set(key, tile);
+          if (!tileSet.has(key)) {
+            tileSet.set(key, tile);
+          }
         }
       }
 
+      const totalTiles = tileSet.size;
       tileCanvas.width = 256;
-      tileCanvas.height = Math.ceil(tileSet.size / 16) * tileSize;
+      tileCanvas.height = Math.ceil(totalTiles / 16) * tileSize;
       tileCtx.fillStyle = '#000';
       tileCtx.fillRect(0, 0, tileCanvas.width, tileCanvas.height);
 
@@ -193,19 +196,26 @@
         if (col >= 16) { col = 0; row++; }
       });
 
-      messageBox.innerText = `🧩 Tiles únicos (16x16): ${tileSet.size}`;
+      messageBox.innerText = `🧩 Tiles únicos (16x16): ${totalTiles}`;
     }
 
     function optimizeImage() {
       simplifyImageColors();
       extractUniqueTiles();
-      alert("Imagen optimizada. Verifica los tiles únicos en el panel lateral.");
+      alert("Imagen optimizada. Tiles únicos preparados para ripeo.");
     }
 
     function exportCanvasPNG() {
       const link = document.createElement('a');
       link.download = 'smw_ready.png';
       link.href = canvas.toDataURL('image/png');
+      link.click();
+    }
+
+    function exportTileCanvasPNG() {
+      const link = document.createElement('a');
+      link.download = 'tiles_unicos.png';
+      link.href = tileCanvas.toDataURL('image/png');
       link.click();
     }
 
