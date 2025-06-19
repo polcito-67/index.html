@@ -68,7 +68,7 @@
 </head>
 <body>
   <header>
-    <h1>Editor Visual SMW Avanzado (Compatible con Ripping Visual)</h1>
+    <h1>Editor Visual SMW Avanzado (Ripping Visual Compatible)</h1>
   </header>
 
   <main>
@@ -87,6 +87,7 @@
       <label>Reducción de color (intensidad):</label>
       <input type="range" min="1" max="64" step="1" value="16" id="quant">
       <button onclick="toggleGrid()">Cuadrícula 8x8</button>
+      <button onclick="optimizeImage()">Optimizar para Lunar Magic</button>
       <button onclick="exportCanvasPNG()">Exportar PNG</button>
       <button onclick="exportPalette()">Exportar .pal + .palmask</button>
       <div id="message"></div>
@@ -175,11 +176,6 @@
       }
     }
 
-    function toggleGrid() {
-      showGrid = !showGrid;
-      drawGrid();
-    }
-
     function visualizeTiles() {
       tilePreview.innerHTML = "";
       const w = canvas.width;
@@ -201,7 +197,14 @@
         }
       }
       const bgBanks = Math.ceil(tileSet.size / 256);
-      messageBox.innerText = `🧩 Tiles únicos: ${tileSet.size} | Bancos BG requeridos: ${bgBanks} | Paleta Q: ${quantSlider.value}`;
+      const suggestion = tileSet.size > 256 ? '🧠 Sugerencia: inicia desde tile 100 o reduce imagen.' : '✅ Compatible con BG1';
+      messageBox.innerText = `🧩 Tiles únicos: ${tileSet.size} | Bancos BG requeridos: ${bgBanks} | ${suggestion}`;
+    }
+
+    function optimizeImage() {
+      simplifyImageColors();
+      visualizeTiles();
+      alert("Imagen optimizada visualmente. Reintenta el ripping con menor uso de tiles duplicados.");
     }
 
     function exportCanvasPNG() {
