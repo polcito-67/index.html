@@ -125,12 +125,13 @@
       if (!file) return;
       const img = new Image();
       img.onload = () => {
-        autoOptimizeImage(img);
+        optimizeAndDrawImage(img);
       };
       img.src = URL.createObjectURL(file);
     }
 
-    function autoOptimizeImage(img) {
+    function optimizeAndDrawImage(img) {
+      const [originalW, originalH] = [img.width, img.height];
       let [targetW, targetH] = dimensions[document.getElementById('mode').value];
       const maxTiles = 768;
 
@@ -143,15 +144,14 @@
         reduceColorsTo256();
         var uniqueTiles = countUniqueTiles8x8();
         if (uniqueTiles > maxTiles) {
-          targetW = Math.floor(targetW * 0.9);
-          targetH = Math.floor(targetH * 0.9);
+          targetW = Math.floor(targetW * 0.95);
+          targetH = Math.floor(targetH * 0.95);
           canvas.width = targetW;
           canvas.height = targetH;
         }
       } while (uniqueTiles > maxTiles && targetW >= 64 && targetH >= 64);
 
-      const msg = `✅ Imagen ajustada automáticamente a ${canvas.width}x${canvas.height}. Tiles únicos: ${uniqueTiles}. Compatible con ripping.`;
-      messageBox.innerText = msg;
+      messageBox.innerText = `✅ Imagen ajustada de ${originalW}x${originalH} a ${canvas.width}x${canvas.height}. Tiles únicos: ${uniqueTiles}. Listo para Lunar Magic.`;
       drawGrid();
     }
 
