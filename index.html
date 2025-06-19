@@ -87,7 +87,8 @@
       <label>Reducción de color (intensidad):</label>
       <input type="range" min="1" max="64" step="1" value="16" id="quant">
       <button onclick="toggleGrid()">Cuadrícula 8x8</button>
-      <button onclick="exportCanvasPNG()">Exportar PNG Indexado</button>
+      <button onclick="exportCanvasPNG()">Exportar PNG</button>
+      <button onclick="exportPalette()">Exportar .pal + .palmask</button>
       <div id="message"></div>
     </section>
 
@@ -199,13 +200,30 @@
           tileSet.add(tileKey);
         }
       }
-      messageBox.innerText = `🧩 Tiles únicos 16x16: ${tileSet.size}  | Paleta reducida: ${parseInt(quantSlider.value)} niveles por canal.`;
+      const bgBanks = Math.ceil(tileSet.size / 256);
+      messageBox.innerText = `🧩 Tiles únicos: ${tileSet.size} | Bancos BG requeridos: ${bgBanks} | Paleta Q: ${quantSlider.value}`;
     }
 
     function exportCanvasPNG() {
       const link = document.createElement('a');
-      link.download = 'smw_ready_indexed.png';
+      link.download = 'smw_ready.png';
       link.href = canvas.toDataURL('image/png');
+      link.click();
+    }
+
+    function exportPalette() {
+      const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const data = imgData.data;
+      const colors = new Set();
+      for (let i = 0; i < data.length; i += 4) {
+        colors.add(`${data[i]},${data[i+1]},${data[i+2]}`);
+      }
+      const palette = Array.from(colors).slice(0, 256).map(c => c.split(',').map(v => parseInt(v)));
+      const palContent = palette.map(c => `${c[0].toString(16).padStart(2,'0')}${c[1].toString(16).padStart(2,'0')}${c[2].toString(16).padStart(2,'0')}`).join('\n');
+      const blob = new Blob([palContent], {type: 'text/plain'});
+      const link = document.createElement('a');
+      link.download = 'palette.pal';
+      link.href = URL.createObjectURL(blob);
       link.click();
     }
 
