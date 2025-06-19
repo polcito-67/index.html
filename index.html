@@ -52,12 +52,13 @@
       color: #0ff;
       margin-top: 1em;
       font-size: 0.9em;
+      white-space: pre-wrap;
     }
   </style>
 </head>
 <body>
   <header>
-    <h1>Editor Visual SMW Avanzado (Compatible con Ripping Completo)</h1>
+    <h1>Editor Visual SMW Avanzado (Optimizado para Ripping)</h1>
   </header>
 
   <main>
@@ -78,8 +79,7 @@
       <button onclick="toggleGrid()">Cuadrícula 8x8</button>
       <button onclick="optimizeImage()">Optimizar Imagen</button>
       <button onclick="exportCanvasPNG()">Exportar PNG</button>
-      <button onclick="exportTileCanvasPNG()">Descargar Tiles Únicos</button>
-      <button onclick="exportRippingData()">Exportar .bin + .map16 + .pal</button>
+      <button onclick="exportTileCanvasPNG()">Descargar Tiles Priorizados</button>
       <div id="message"></div>
     </section>
 
@@ -87,7 +87,7 @@
       <h2>Vista previa original</h2>
       <canvas id="canvas" width="512" height="512"></canvas>
 
-      <h2>Tiles únicos detectados</h2>
+      <h2>Tiles más usados (máx 768)</h2>
       <canvas id="tileCanvas" width="256" height="256"></canvas>
     </section>
   </main>
@@ -134,7 +134,7 @@
       ctx.drawImage(img, 0, 0, w, h);
       simplifyImageColors();
       drawGrid();
-      extractUniqueTiles();
+      extractPriorityTiles();
     }
 
     function simplifyImageColors() {
@@ -166,43 +166,65 @@
       }
     }
 
-    function extractUniqueTiles() {
+    function extractPriorityTiles() {
       const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
       const w = canvas.width;
       const h = canvas.height;
-      const tileSet = new Map();
+      const tileMap = new Map();
       const tileSize = 16;
 
       for (let y = 0; y <= h - tileSize; y += tileSize) {
         for (let x = 0; x <= w - tileSize; x += tileSize) {
           const tile = ctx.getImageData(x, y, tileSize, tileSize);
           const key = Array.from(tile.data).join(',');
-          if (!tileSet.has(key)) {
-            tileSet.set(key, tile);
-          }
+          if (!tileMap.has(key)) tileMap.set(key, { tile, count: 0 });
+          tileMap.get(key).count++;
         }
       }
 
-      const totalTiles = tileSet.size;
+      const sortedTiles = [...tileMap.values()].sort((a, b) => b.count - a.count);
+      const limitedTiles = sortedTiles.slice(0, 768);
+
       tileCanvas.width = 256;
-      tileCanvas.height = Math.ceil(totalTiles / 16) * tileSize;
+      tileCanvas.height = Math.ceil(limitedTiles.length / 16) * tileSize;
       tileCtx.fillStyle = '#000';
       tileCtx.fillRect(0, 0, tileCanvas.width, tileCanvas.height);
 
       let col = 0, row = 0;
-      tileSet.forEach(tile => {
-        tileCtx.putImageData(tile, col * tileSize, row * tileSize);
+      tileCtx.font = '8px monospace';
+      tileCtx.fillStyle = '#0f0';
+
+      for (const obj of limitedTiles) {
+        tileCtx.putImageData(obj.tile, col * tileSize, row * tileSize);
+        tileCtx.fillText(obj.count.toString(), col * tileSize + 1, row * tileSize + 10);
         col++;
         if (col >= 16) { col = 0; row++; }
-      });
+      }
 
-      messageBox.innerText = `🧩 Tiles únicos (16x16): ${totalTiles}`;
+      const colorSet = new Set();
+      const data = imgData.data;
+      for (let i = 0; i < data.length; i += 4) {
+        const r = data[i] >> 3;
+        const g = data[i + 1] >> 3;
+        const b = data[i + 2] >> 3;
+        colorSet.add(`${r},${g},${b}`);
+      }
+
+      const warnings = [];
+      if (limitedTiles.length > 768) {
+        warnings.push(`⚠ Se encontraron ${limitedTiles.length} tiles. Se mostrarán solo los primeros 768.`);
+      }
+      if (colorSet.size > 256) {
+        warnings.push(`⚠ La imagen tiene ${colorSet.size} colores (reducida a ${quantSlider.value}-bit). SMW permite 256 máximo.`);
+      }
+
+      messageBox.innerText = `🧩 Tiles: ${limitedTiles.length}\n🎨 Colores únicos: ${colorSet.size}\n` + (warnings.length ? warnings.join('\n') : '✅ Compatible con ripping SMW');
     }
 
     function optimizeImage() {
       simplifyImageColors();
-      extractUniqueTiles();
-      alert("Imagen optimizada. Tiles únicos preparados para ripeo.");
+      extractPriorityTiles();
+      alert("Imagen optimizada con reducción de colores y verificación de tiles únicos.");
     }
 
     function exportCanvasPNG() {
@@ -214,13 +236,9 @@
 
     function exportTileCanvasPNG() {
       const link = document.createElement('a');
-      link.download = 'tiles_unicos.png';
+      link.download = 'tiles_prioritarios.png';
       link.href = tileCanvas.toDataURL('image/png');
       link.click();
-    }
-
-    function exportRippingData() {
-      alert("⚠ Exportación real .bin/.map16 aún en desarrollo.");
     }
 
     switchMode();
