@@ -123,33 +123,34 @@
     function handleImageUpload(event) {
       const file = event.target.files[0];
       if (!file) return;
-
       const img = new Image();
       img.onload = () => {
-        autoAdjustAndAnalyze(img);
+        autoOptimizeImage(img);
       };
       img.src = URL.createObjectURL(file);
     }
 
-    function autoAdjustAndAnalyze(img) {
-      const [targetW, targetH] = dimensions[document.getElementById('mode').value];
+    function autoOptimizeImage(img) {
+      let [targetW, targetH] = dimensions[document.getElementById('mode').value];
+      const maxTiles = 768;
 
       canvas.width = targetW;
       canvas.height = targetH;
-      ctx.clearRect(0, 0, targetW, targetH);
-      ctx.drawImage(img, 0, 0, targetW, targetH);
 
-      const colorsUsed = reduceColorsTo256();
-      const uniqueTiles = countUniqueTiles8x8();
+      do {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        reduceColorsTo256();
+        var uniqueTiles = countUniqueTiles8x8();
+        if (uniqueTiles > maxTiles) {
+          targetW = Math.floor(targetW * 0.9);
+          targetH = Math.floor(targetH * 0.9);
+          canvas.width = targetW;
+          canvas.height = targetH;
+        }
+      } while (uniqueTiles > maxTiles && targetW >= 64 && targetH >= 64);
 
-      let msg = `✅ Imagen adaptada a ${targetW}x${targetH}, ${colorsUsed} colores.`;
-
-      if (uniqueTiles > 768) {
-        msg += ` ⚠ Genera ${uniqueTiles} tiles únicos. El límite para BG/FG es 768. Reduzca patrones o colores.`;
-      } else {
-        msg += ` Tiles únicos: ${uniqueTiles}. Compatible con ripping.`;
-      }
-
+      const msg = `✅ Imagen ajustada automáticamente a ${canvas.width}x${canvas.height}. Tiles únicos: ${uniqueTiles}. Compatible con ripping.`;
       messageBox.innerText = msg;
       drawGrid();
     }
