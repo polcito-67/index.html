@@ -117,7 +117,15 @@
       </select>
       <button onclick="generateWithAI()">Generar Imagen SMW (IA)</button>
       <div id="message"></div>
-      <div id="previewParts"></div>
+      <label>Filtro visual:</label>
+<select id="filterStyle">
+  <option value="none">Ninguno</option>
+  <option value="megaman">Megaman</option>
+  <option value="donkeykong">Donkey Kong</option>
+  <option value="smb3">Mario Bros 3</option>
+</select>
+<button onclick="applyVisualFilter()">Aplicar Filtro</button>
+<div id="previewParts"></div>
     </div>
 
     <div class="panel">
@@ -139,12 +147,12 @@ function handleImageUpload(event) {
   reader.onload = function (e) {
     const img = new Image();
     img.onload = function () {
-      const canvas = document.getElementById('originalCanvas');
-      const ctx = canvas.getContext('2d');
-      canvas.width = img.width;
-      canvas.height = img.height;
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(img, 0, 0);
+    const canvas = document.getElementById('originalCanvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = 256;
+    canvas.height = 256;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, 0, 0, 256, 256);
     };
     img.src = e.target.result;
   };
@@ -229,7 +237,7 @@ function generateWithAI() {
 
   const img = new Image();
   img.crossOrigin = 'anonymous';
-  img.src = `https://source.unsplash.com/512x512/?${encodeURIComponent(prompt + ' pixel art landscape')}`;
+  img.src = `https://api.dicebear.com/7.x/shapes/svg?seed=${encodeURIComponent(prompt)}&scale=80`;
 
   img.onload = function () {
     canvas.width = img.width;
@@ -259,6 +267,34 @@ function loadImageFromURL() {
     document.getElementById('message').innerText = 'No se pudo cargar la imagen. Verifica el enlace.';
   };
   img.src = url;
+}
+
+// Aplicar filtro visual antes de descargar
+function applyVisualFilter() {
+  const style = document.getElementById('filterStyle').value;
+  const canvas = document.getElementById('optimizedCanvas');
+  const ctx = canvas.getContext('2d');
+  const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const pixels = imgData.data;
+
+  for (let i = 0; i < pixels.length; i += 4) {
+    if (style === 'megaman') {
+      pixels[i] = pixels[i] * 0.9;
+      pixels[i + 1] = pixels[i + 1] * 0.7;
+      pixels[i + 2] = pixels[i + 2] * 1.2;
+    } else if (style === 'donkeykong') {
+      pixels[i] = pixels[i] * 1.2;
+      pixels[i + 1] = pixels[i + 1] * 1.1;
+      pixels[i + 2] = pixels[i + 2] * 0.8;
+    } else if (style === 'smb3') {
+      const avg = (pixels[i] + pixels[i + 1] + pixels[i + 2]) / 3;
+      pixels[i] = avg;
+      pixels[i + 1] = avg * 0.9;
+      pixels[i + 2] = avg * 0.7;
+    }
+  }
+  ctx.putImageData(imgData, 0, 0);
+  document.getElementById('message').innerText = 'Filtro aplicado: ' + style;
 }
 </script>
 </body>
