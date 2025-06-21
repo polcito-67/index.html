@@ -100,9 +100,16 @@
         <option value="bg_1024">BG (1024x512)</option>
         <option value="bg_1024s">BG (1024x1024)</option>
       </select>
-      <label>Reducción de color automática</label>
-      <input type="range" id="quant" min="1" max="64" value="16">
+      <label>Reducción de color:</label>
+      <input type="range" id="quant" min="2" max="16" value="7">
       <button onclick="fullSmartOptimization()">Optimización Total</button>
+      <label>Filtro artístico:</label>
+      <select id="filter">
+        <option value="none">Ninguno</option>
+        <option value="classic">Clásico SMW</option>
+        <option value="megaman">Estilo Megaman</option>
+        <option value="dk">Donkey Kong</option>
+      </select>
       <label>Generar con IA (Escena):</label>
       <select id="aiPrompt">
         <option value="lava cave">Cueva de Lava</option>
@@ -112,13 +119,6 @@
         <option value="sky castle">Castillo en el Cielo</option>
       </select>
       <button onclick="generateWithAI()">Generar Imagen SMW (IA)</button>
-      <label>Filtro Estético:</label>
-      <select id="filter">
-        <option value="none">Ninguno</option>
-        <option value="retro">Retro / Clásico</option>
-        <option value="megaman">Estilo MegaMan</option>
-        <option value="dk">Estilo Donkey Kong</option>
-      </select>
       <div id="message"></div>
       <div id="previewParts"></div>
     </div>
@@ -129,10 +129,10 @@
       <canvas id="originalCanvas" width="256" height="256"></canvas>
       <label>Optimizada</label>
       <canvas id="optimizedCanvas" width="256" height="256"></canvas>
-      <button onclick="downloadOptimizedImage()">Descargar Optimizada</button>
+      <button onclick="downloadOptimizedImage()">Descargar Imagen Optimizada</button>
     </div>
   </div>
 
-  <script src="script.js"></script>
+  <script src="script-smw.js"></script>
 </body>
 </html>
