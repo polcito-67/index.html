@@ -86,7 +86,6 @@
 </head>
 <body>
   <header>SMW Pixel Designer</header>
-
   <div class="container">
     <div class="panel">
       <h3>Diseñador de Backgrounds / FG</h3>
@@ -101,15 +100,8 @@
         <option value="bg_1024s">BG (1024x1024)</option>
       </select>
       <label>Reducción de color:</label>
-      <input type="range" id="quant" min="2" max="16" value="7">
+      <input type="range" id="quant" min="2" max="64" value="8">
       <button onclick="fullSmartOptimization()">Optimización Total</button>
-      <label>Filtro artístico:</label>
-      <select id="filter">
-        <option value="none">Ninguno</option>
-        <option value="classic">Clásico SMW</option>
-        <option value="megaman">Estilo Megaman</option>
-        <option value="dk">Donkey Kong</option>
-      </select>
       <label>Generar con IA (Escena):</label>
       <select id="aiPrompt">
         <option value="lava cave">Cueva de Lava</option>
@@ -129,10 +121,86 @@
       <canvas id="originalCanvas" width="256" height="256"></canvas>
       <label>Optimizada</label>
       <canvas id="optimizedCanvas" width="256" height="256"></canvas>
-      <button onclick="downloadOptimizedImage()">Descargar Imagen Optimizada</button>
+      <button onclick="downloadOptimized()">Descargar Optimizada</button>
     </div>
   </div>
 
-  <script src="script-smw.js"></script>
+  <script src="https://unpkg.com/quantize"></script>
+  <script>
+    let originalImage = null;
+
+    function handleImageUpload(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        const img = new Image();
+        img.onload = function () {
+          originalImage = img;
+          drawToCanvas(img, document.getElementById('originalCanvas'));
+          autoOptimize(img);
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function drawToCanvas(img, canvas) {
+      const ctx = canvas.getContext('2d');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0);
+    }
+
+    function autoOptimize(img) {
+      const mode = document.getElementById('mode').value;
+      let [w, h] = mode.split('_')[1].split('x') || [256, 256];
+      w = parseInt(w); h = parseInt(h);
+      const quantLevel = parseInt(document.getElementById('quant').value);
+
+      const canvas = document.getElementById('optimizedCanvas');
+      const ctx = canvas.getContext('2d');
+      canvas.width = w; canvas.height = h;
+      ctx.drawImage(img, 0, 0, w, h);
+
+      const imageData = ctx.getImageData(0, 0, w, h);
+      const quantized = quantizeColors(imageData, quantLevel);
+      ctx.putImageData(quantized, 0, 0);
+    }
+
+    function quantizeColors(imageData, colorCount) {
+      const pixels = [];
+      for (let i = 0; i < imageData.data.length; i += 4) {
+        pixels.push([imageData.data[i], imageData.data[i + 1], imageData.data[i + 2]]);
+      }
+      const cmap = quantize(pixels, colorCount);
+      const palette = cmap.palette();
+      for (let i = 0; i < pixels.length; i++) {
+        const [r, g, b] = cmap.map(pixels[i]);
+        imageData.data[i * 4] = r;
+        imageData.data[i * 4 + 1] = g;
+        imageData.data[i * 4 + 2] = b;
+      }
+      return imageData;
+    }
+
+    function fullSmartOptimization() {
+      if (originalImage) autoOptimize(originalImage);
+    }
+
+    function downloadOptimized() {
+      const canvas = document.getElementById('optimizedCanvas');
+      const link = document.createElement('a');
+      link.download = 'optimized_image.png';
+      link.href = canvas.toDataURL();
+      link.click();
+    }
+
+    function generateWithAI() {
+      const prompt = document.getElementById('aiPrompt').value;
+      alert("Funcionalidad de IA aún no disponible en esta demo local. Pronto se integrará con HuggingFace o similares.");
+    }
+  </script>
 </body>
 </html>
