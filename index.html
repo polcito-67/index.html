@@ -61,6 +61,23 @@
       font-size: 0.65em;
       color: #222;
     }
+    #previewParts {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5em;
+      margin-top: 1em;
+    }
+    .part-preview {
+      background: #fff;
+      border: 2px solid #333;
+      padding: 0.2em;
+      text-align: center;
+    }
+    .part-preview canvas {
+      border: 2px solid #000;
+      width: 128px;
+      height: 128px;
+    }
   </style>
 </head>
 <body>
@@ -71,7 +88,7 @@
       <h3>Background Designer</h3>
       <input type="file" accept="image/*" onchange="handleImageUpload(event)">
       <label>Modo:</label>
-      <select id="mode" onchange="switchMode()">
+      <select id="mode">
         <option value="fg_256">FG (256x256)</option>
         <option value="fg_512">FG (512x256)</option>
         <option value="fg_512s">FG (512x512)</option>
@@ -81,10 +98,9 @@
       </select>
       <label>Reducción de color:</label>
       <input type="range" id="quant" min="1" max="64" value="16">
-      <button onclick="autoOptimizeForLunarMagic()">Optimizar para Lunar Magic</button>
-      <button onclick="splitImageIfNeeded()">Dividir si es necesario</button>
-      <button onclick="downloadOptimizedImage()">Descargar Optimizada</button>
+      <button onclick="fullSmartOptimization()">Optimización Total</button>
       <div id="message"></div>
+      <div id="previewParts"></div>
     </div>
 
     <div class="panel">
@@ -93,15 +109,6 @@
       <canvas id="originalCanvas" width="256" height="256"></canvas>
       <label>Optimizada</label>
       <canvas id="optimizedCanvas" width="256" height="256"></canvas>
-    </div>
-
-    <div class="panel">
-      <h3>AI: Generador de Fondos</h3>
-      <label>Descripción:</label>
-      <textarea id="prompt" rows="3" placeholder="Ej. un castillo oscuro con lava..."></textarea>
-      <button onclick="generateAIImage()">Generar con IA (Mock)</button>
-      <p style="font-size: 0.6em; color: #333">(Solo demostración – integra con API real para generación funcional)</p>
-      <canvas id="aiCanvas" width="256" height="256"></canvas>
     </div>
   </div>
 
@@ -112,8 +119,8 @@
     const optCtx = optimizedCanvas.getContext("2d");
     const quantSlider = document.getElementById("quant");
     const messageBox = document.getElementById("message");
-    const aiCanvas = document.getElementById("aiCanvas");
-    const aiCtx = aiCanvas.getContext("2d");
+    const previewContainer = document.getElementById("previewParts");
+
     let originalImg = null;
 
     function handleImageUpload(event) {
@@ -122,20 +129,34 @@
       const img = new Image();
       img.onload = () => {
         originalImg = img;
-        optimizeImageForRipping(img);
+        processFullOptimization();
       };
       img.src = URL.createObjectURL(file);
     }
 
-    function optimizeImageForRipping(img) {
+    function processFullOptimization() {
+      originalCanvas.width = originalImg.width;
+      originalCanvas.height = originalImg.height;
+      optimizedCanvas.width = originalImg.width;
+      optimizedCanvas.height = originalImg.height;
       oCtx.clearRect(0, 0, originalCanvas.width, originalCanvas.height);
       optCtx.clearRect(0, 0, optimizedCanvas.width, optimizedCanvas.height);
-      oCtx.drawImage(img, 0, 0, originalCanvas.width, originalCanvas.height);
+      oCtx.drawImage(originalImg, 0, 0);
       const imgData = oCtx.getImageData(0, 0, originalCanvas.width, originalCanvas.height);
-      applyColorQuantization(imgData);
+      const reduced = reduceColors(imgData);
+      const tileCount = countUniqueTiles(reduced);
+      if (tileCount > 768) {
+        previewContainer.innerHTML = '';
+        splitAndPreviewParts(originalImg);
+        messageBox.innerText = `⚠️ ${tileCount} tiles únicos. Vista previa de partes optimizadas.`;
+      } else {
+        optCtx.putImageData(reduced, 0, 0);
+        messageBox.innerText = `✅ Imagen compatible con ${tileCount} tiles.`;
+        previewContainer.innerHTML = '';
+      }
     }
 
-    function applyColorQuantization(imgData) {
+    function reduceColors(imgData) {
       const data = imgData.data;
       const step = Math.max(1, 256 / parseInt(quantSlider.value));
       for (let i = 0; i < data.length; i += 4) {
@@ -143,63 +164,77 @@
         data[i+1] = Math.floor(data[i+1] / step) * step;
         data[i+2] = Math.floor(data[i+2] / step) * step;
       }
-      optCtx.putImageData(imgData, 0, 0);
-      messageBox.innerText = "✅ Imagen optimizada para Lunar Magic";
+      return imgData;
     }
 
-    function autoOptimizeForLunarMagic() {
-      const imgData = oCtx.getImageData(0, 0, originalCanvas.width, originalCanvas.height);
-      applyColorQuantization(imgData);
-    }
-
-    function downloadOptimizedImage() {
-      const link = document.createElement('a');
-      link.download = 'imagen_optimizada.png';
-      link.href = optimizedCanvas.toDataURL();
-      link.click();
-    }
-
-    function generateAIImage() {
-      aiCtx.fillStyle = '#0a0';
-      aiCtx.fillRect(0, 0, 256, 256);
-      aiCtx.fillStyle = '#fff';
-      aiCtx.font = '8px monospace';
-      aiCtx.fillText("Mock IA BG", 80, 128);
-    }
-
-    function splitImageIfNeeded() {
-      if (!originalImg) return;
-      const MAX_WIDTH = 512;
-      const MAX_HEIGHT = 512;
-      if (originalImg.width <= MAX_WIDTH && originalImg.height <= MAX_HEIGHT) {
-        messageBox.innerText = "✅ Tamaño ya compatible";
-        return;
-      }
-
-      let cols = Math.ceil(originalImg.width / MAX_WIDTH);
-      let rows = Math.ceil(originalImg.height / MAX_HEIGHT);
-      let part = 1;
-      const tempCanvas = document.createElement('canvas');
-      const ctx = tempCanvas.getContext('2d');
-      tempCanvas.width = MAX_WIDTH;
-      tempCanvas.height = MAX_HEIGHT;
-
-      for (let y = 0; y < rows; y++) {
-        for (let x = 0; x < cols; x++) {
-          ctx.clearRect(0, 0, MAX_WIDTH, MAX_HEIGHT);
-          ctx.drawImage(
-            originalImg,
-            x * MAX_WIDTH, y * MAX_HEIGHT,
-            MAX_WIDTH, MAX_HEIGHT,
-            0, 0, MAX_WIDTH, MAX_HEIGHT
-          );
-          const link = document.createElement('a');
-          link.download = `parte_${part++}.png`;
-          link.href = tempCanvas.toDataURL();
-          link.click();
+    function countUniqueTiles(imgData) {
+      const seen = new Set();
+      const tileW = 8, tileH = 8;
+      const width = imgData.width;
+      for (let y = 0; y < imgData.height; y += tileH) {
+        for (let x = 0; x < width; x += tileW) {
+          const tile = [];
+          for (let j = 0; j < tileH; j++) {
+            for (let i = 0; i < tileW; i++) {
+              const px = ((y + j) * width + (x + i)) * 4;
+              tile.push(
+                imgData.data[px],
+                imgData.data[px + 1],
+                imgData.data[px + 2]
+              );
+            }
+          }
+          seen.add(tile.join(","));
         }
       }
-      messageBox.innerText = "✅ Imagen dividida automáticamente para compatibilidad";
+      return seen.size;
+    }
+
+    function splitAndPreviewParts(img) {
+      const maxW = 256;
+      const maxH = 256;
+      let part = 1;
+      const tempCanvas = document.createElement("canvas");
+      const ctx = tempCanvas.getContext("2d");
+      for (let y = 0; y < img.height; y += maxH) {
+        for (let x = 0; x < img.width; x += maxW) {
+          const w = Math.min(maxW, img.width - x);
+          const h = Math.min(maxH, img.height - y);
+          tempCanvas.width = w;
+          tempCanvas.height = h;
+          ctx.clearRect(0, 0, w, h);
+          ctx.drawImage(img, x, y, w, h, 0, 0, w, h);
+
+          const preview = document.createElement("div");
+          preview.className = "part-preview";
+          const label = document.createElement("div");
+          label.innerText = `Parte ${part}`;
+          const previewCanvas = document.createElement("canvas");
+          previewCanvas.width = w;
+          previewCanvas.height = h;
+          previewCanvas.getContext("2d").drawImage(tempCanvas, 0, 0);
+
+          const dlBtn = document.createElement("button");
+          dlBtn.innerText = "Descargar";
+          dlBtn.onclick = () => {
+            const link = document.createElement("a");
+            link.download = `parte_${part}.png`;
+            link.href = previewCanvas.toDataURL();
+            link.click();
+          };
+
+          preview.appendChild(label);
+          preview.appendChild(previewCanvas);
+          preview.appendChild(dlBtn);
+          previewContainer.appendChild(preview);
+          part++;
+        }
+      }
+    }
+
+    function fullSmartOptimization() {
+      if (!originalImg) return;
+      processFullOptimization();
     }
   </script>
 </body>
