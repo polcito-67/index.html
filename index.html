@@ -56,6 +56,7 @@
       margin-top: 0.5em;
       width: 100%;
       height: auto;
+      max-width: 512px;
     }
     label {
       font-size: 0.75em;
@@ -91,6 +92,9 @@
     <div class="panel">
       <h3>Diseñador de Backgrounds / FG</h3>
       <input type="file" accept="image/*" onchange="handleImageUpload(event)">
+<label>O carga desde un enlace:</label>
+<input type="text" id="imageURL" placeholder="https://...">
+<button onclick="loadImageFromURL()">Cargar desde enlace</button>
       <label>Modo:</label>
       <select id="mode">
         <option value="fg_256">FG (256x256)</option>
@@ -125,7 +129,137 @@
     </div>
   </div>
 
-  <!-- script igual al anterior -->
-  <!-- ... (omitido para brevedad, ya incluido) ... -->
+  <script>
+// Maneja la subida de imágenes desde el usuario
+function handleImageUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = function (e) {
+    const img = new Image();
+    img.onload = function () {
+      const canvas = document.getElementById('originalCanvas');
+      const ctx = canvas.getContext('2d');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0);
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+// Función para recortar y optimizar imagen
+function fullSmartOptimization() {
+  const canvas = document.getElementById('originalCanvas');
+  const ctx = canvas.getContext('2d');
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+  const quant = parseInt(document.getElementById('quant').value);
+  const pixels = imageData.data;
+
+  const palette = {};
+  let colorsUsed = 0;
+
+  for (let i = 0; i < pixels.length; i += 4) {
+    const key = `${pixels[i]},${pixels[i + 1]},${pixels[i + 2]}`;
+    if (!palette[key]) {
+      colorsUsed++;
+      if (colorsUsed > quant) {
+        pixels[i] = pixels[i + 1] = pixels[i + 2] = Math.floor((pixels[i] + pixels[i + 1] + pixels[i + 2]) / 3);
+      }
+      palette[key] = true;
+    }
+  }
+  ctx.putImageData(imageData, 0, 0);
+
+  // Cortar si excede tiles (ej: 512x512 son 1024 tiles)
+  const maxTiles = 768;
+  const tileW = 8;
+  const tileH = 8;
+  const tilesWide = Math.floor(canvas.width / tileW);
+  const tilesHigh = Math.floor(canvas.height / tileH);
+  const totalTiles = tilesWide * tilesHigh;
+
+  const preview = document.getElementById('previewParts');
+  preview.innerHTML = '';
+
+  if (totalTiles > maxTiles) {
+    const parts = Math.ceil(totalTiles / maxTiles);
+    const partHeight = Math.floor(canvas.height / parts);
+
+    for (let i = 0; i < parts; i++) {
+      const partCanvas = document.createElement('canvas');
+      const partCtx = partCanvas.getContext('2d');
+      partCanvas.width = canvas.width;
+      partCanvas.height = partHeight;
+      partCtx.drawImage(canvas, 0, i * partHeight, canvas.width, partHeight, 0, 0, canvas.width, partHeight);
+
+      const container = document.createElement('div');
+      container.className = 'part-preview';
+      container.innerHTML = `<strong>Parte ${i + 1}</strong><br>`;
+      container.appendChild(partCanvas);
+
+      const link = document.createElement('a');
+      link.download = `parte${i + 1}.png`;
+      link.innerText = 'Descargar';
+      link.href = partCanvas.toDataURL();
+      link.style.display = 'block';
+      container.appendChild(link);
+      preview.appendChild(container);
+    }
+  } else {
+    const optCanvas = document.getElementById('optimizedCanvas');
+    const optCtx = optCanvas.getContext('2d');
+    optCanvas.width = canvas.width;
+    optCanvas.height = canvas.height;
+    optCtx.drawImage(canvas, 0, 0);
+  }
+
+  document.getElementById('message').innerText = `Colores únicos: ${colorsUsed}, Tiles: ${totalTiles}`;
+}
+
+// Generar imagen con IA (mock demo por ahora)
+function generateWithAI() {
+  const prompt = document.getElementById('aiPrompt').value;
+  const canvas = document.getElementById('originalCanvas');
+  const ctx = canvas.getContext('2d');
+
+  const img = new Image();
+  img.crossOrigin = 'anonymous';
+  img.src = `https://source.unsplash.com/512x512/?${encodeURIComponent(prompt + ' pixel art landscape')}`;
+
+  img.onload = function () {
+    canvas.width = img.width;
+    canvas.height = img.height;
+    ctx.drawImage(img, 0, 0);
+    document.getElementById('message').innerText = 'Imagen generada con IA aplicada.';
+  };
+}
+
+// Cargar imagen desde un enlace externo
+function loadImageFromURL() {
+  const url = document.getElementById('imageURL').value;
+  if (!url) return;
+
+  const img = new Image();
+  img.crossOrigin = 'anonymous';
+  img.onload = function () {
+    const canvas = document.getElementById('originalCanvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = img.width;
+    canvas.height = img.height;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, 0, 0);
+    document.getElementById('message').innerText = 'Imagen cargada desde enlace.';
+  };
+  img.onerror = function () {
+    document.getElementById('message').innerText = 'No se pudo cargar la imagen. Verifica el enlace.';
+  };
+  img.src = url;
+}
+</script>
 </body>
 </html>
