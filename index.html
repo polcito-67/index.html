@@ -2,27 +2,32 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>SMW Pixel Designer (Lunar Magic RIP)</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>SMW Pixel Designer – Rip ExGFX</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
   <style>
-    body { margin:0; font-family:'Press Start 2P',monospace; image-rendering:pixelated; background:#6c88c4; }
-    header { background:#3d5a99; color:white; text-align:center; padding:.8em; font-size:1.2em; border-bottom:4px solid #fff; }
-    .container { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:1em; padding:1em; }
-    .panel { background:#a9bfe3; border:4px solid #4b6faa; padding:1em; border-radius:6px; box-shadow:2px 2px #2a446e; }
-    button, select, input[type=file], input[type=range] { font-family:inherit; background:#d8e3f8; border:2px solid #3c5d91; color:#000; padding:.3em; width:100%; cursor:pointer; margin:.3em 0; }
-    canvas { background:#000; border:3px solid #fff; margin-top:.5em; width:100%; height:auto; }
-    label { font-size:.75em; }
-    #previewParts { display:flex; flex-wrap:wrap; gap:.5em; margin-top:1em; }
-    .part-preview { background:#fff; border:2px solid #333; padding:.2em; text-align:center; }
-    .part-preview canvas { border:2px solid #000; width:64px; height:auto; }
+    body { margin: 0; font-family: 'Press Start 2P', monospace; background: #6c88c4; image-rendering: pixelated; }
+    header { background: #3d5a99; color: white; text-align: center; padding: 0.8em; font-size: 1.2em; border-bottom: 4px solid white; }
+    .container { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1em; padding: 1em; }
+    .panel { background: #a9bfe3; border: 4px solid #4b6faa; padding: 1em; border-radius: 6px; box-shadow: 2px 2px #2a446e; }
+    h3 { font-size: 0.9em; text-align: center; margin-top: 0; }
+    button, select, input[type=file], input[type=range] {
+      font-family: inherit; background: #d8e3f8; border: 2px solid #3c5d91;
+      color: black; padding: 0.3em; width: 100%; margin: 0.3em 0;
+    }
+    label { font-size: 0.75em; display: block; margin-top: 0.5em; }
+    canvas { background: #000; border: 3px solid #fff; width: 100%; height: auto; margin-top: 0.5em; }
+    #message { font-size: 0.65em; margin-top: 0.3em; }
+    #previewParts { display: flex; flex-wrap: wrap; gap: 0.4em; margin-top: 1em; }
+    .part-preview canvas { border: 2px solid black; width: 64px; height: auto; }
+    .part-preview { padding: 0.2em; background: white; border: 2px solid #333; }
   </style>
 </head>
 <body>
-  <header>SMW Pixel Designer – Compatible con Lunar Magic</header>
+  <header>SMW Pixel Designer – Compatible Lunar Magic</header>
   <div class="container">
     <div class="panel">
-      <h3>Rip / Diseño de BG‑FG</h3>
+      <h3>Diseñador de BG / FG ExGFX</h3>
       <input type="file" accept="image/*" onchange="handleImageUpload(event)">
       <label>Modo (tamaño canvas):</label>
       <select id="mode">
@@ -33,13 +38,13 @@
         <option value="bg_1024">1024×512</option>
         <option value="bg_1024s">1024×1024</option>
       </select>
-      <label>Cuantización (grises):</label>
+      <label>Reducción de color:</label>
       <input type="range" id="quant" min="1" max="64" value="16">
       <button onclick="fullSmartOptimization()">Optimizar color</button>
-      <label>Escena IA:</label>
+      <label>Generar escena IA:</label>
       <select id="aiPrompt">
         <option value="lava cave">Cueva de Lava</option>
-        <option value="forest ruins">Ruinas Bosque</option>
+        <option value="forest ruins">Ruinas del Bosque</option>
         <option value="water temple">Templo Acuático</option>
         <option value="ice mountain">Montaña de Hielo</option>
         <option value="sky castle">Castillo en el Cielo</option>
@@ -51,7 +56,6 @@
     </div>
     <div class="panel">
       <h3>Vista Previa</h3>
-      <label>Original / Optimizada = misma vista</label>
       <canvas id="optimizedCanvas" width="256" height="256"></canvas>
     </div>
   </div>
@@ -60,85 +64,126 @@
     const canvas = document.getElementById('optimizedCanvas');
     const ctx = canvas.getContext('2d');
     const modeSizes = {
-      fg_256:[256,256], fg_512:[512,256], fg_512s:[512,512],
-      bg_512:[512,512], bg_1024:[1024,512], bg_1024s:[1024,1024]
+      fg_256: [256, 256], fg_512: [512, 256], fg_512s: [512, 512],
+      bg_512: [512, 512], bg_1024: [1024, 512], bg_1024s: [1024, 1024]
     };
-    const btnExport = document.getElementById('exportBtn');
-    let secretMode=false;
+    let secretMode = false;
 
-    document.getElementById('mode').addEventListener('change', e=>{
-      const [w,h]=modeSizes[e.target.value];
-      canvas.width=w; canvas.height=h;
-      ctx.clearRect(0,0,w,h); updatePreviewTiles();
-      showMsg(`Modo: ${w}×${h}`);
+    document.getElementById('mode').addEventListener('change', e => {
+      const [w, h] = modeSizes[e.target.value];
+      canvas.width = w;
+      canvas.height = h;
+      ctx.clearRect(0, 0, w, h);
+      updatePreviewTiles();
+      showMsg(`Modo actualizado: ${w}x${h}`);
     });
 
-    function handleImageUpload(evt){
-      const f=evt.target.files[0]; if(!f) return;
-      const img=new Image();
-      img.onload=()=>{
-        canvas.width=img.width; canvas.height=img.height;
-        ctx.drawImage(img,0,0);
-        quantize(); showMsg('Imagen cargada');
+    function handleImageUpload(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const img = new Image();
+      img.onload = () => {
+        adaptImageToCanvas(img);
+        quantize();
         updatePreviewTiles();
+        showMsg('Imagen cargada y adaptada');
       };
-      img.src=URL.createObjectURL(f);
+      img.src = URL.createObjectURL(file);
     }
 
-    function fullSmartOptimization(){
-      quantize();
-      showMsg('Optimización aplicada');
-      updatePreviewTiles();
+    function adaptImageToCanvas(img) {
+      const mode = document.getElementById('mode').value;
+      const [w, h] = modeSizes[mode];
+      canvas.width = w;
+      canvas.height = h;
+
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = w;
+      tempCanvas.height = h;
+      const tempCtx = tempCanvas.getContext('2d');
+
+      const scale = Math.max(w / img.width, h / img.height);
+      const newW = img.width * scale;
+      const newH = img.height * scale;
+      const offsetX = (w - newW) / 2;
+      const offsetY = (h - newH) / 2;
+
+      tempCtx.fillStyle = "#000";
+      tempCtx.fillRect(0, 0, w, h);
+      tempCtx.drawImage(img, offsetX, offsetY, newW, newH);
+
+      ctx.clearRect(0, 0, w, h);
+      ctx.drawImage(tempCanvas, 0, 0);
     }
 
-    function quantize(){
-      const q=+document.getElementById('quant').value;
-      const d=ctx.getImageData(0,0,canvas.width,canvas.height);
-      for(let i=0;i<d.data.length;i+=4){
-        let avg=(d.data[i]+d.data[i+1]+d.data[i+2])/3;
-        let r= Math.floor(avg/(256/q))*(256/q);
-        d.data[i]=d.data[i+1]=d.data[i+2]= r;
+    function quantize() {
+      const quant = +document.getElementById('quant').value;
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      for (let i = 0; i < imageData.data.length; i += 4) {
+        const avg = (imageData.data[i] + imageData.data[i+1] + imageData.data[i+2]) / 3;
+        const reduced = Math.floor(avg / (256 / quant)) * (256 / quant);
+        imageData.data[i] = imageData.data[i+1] = imageData.data[i+2] = reduced;
       }
-      ctx.putImageData(d,0,0);
+      ctx.putImageData(imageData, 0, 0);
     }
 
-    function generateWithAI(){
-      const prompt=document.getElementById('aiPrompt').value;
-      const colors={'lava cave':'#ff4400','forest ruins':'#228B22','water temple':'#0077be','ice mountain':'#b0e0e6','sky castle':'#d8bfd8'};
-      const [w,h]=modeSizes[document.getElementById('mode').value];
-      canvas.width=w; canvas.height=h;
-      ctx.fillStyle=colors[prompt]||'#888'; ctx.fillRect(0,0,w,h);
-      showMsg(`Escena IA: ${prompt}`);
+    function fullSmartOptimization() {
+      quantize();
       updatePreviewTiles();
+      showMsg('Optimización aplicada');
     }
 
-    function updatePreviewTiles(){
-      const cont=document.getElementById('previewParts'); cont.innerHTML='';
-      const s=16;
-      for(let y=0;y<canvas.height;y+=s){
-        for(let x=0;x<canvas.width;x+=s){
-          const p=document.createElement('canvas');
-          p.width=p.height=s;
-          p.getContext('2d').putImageData(ctx.getImageData(x,y,s,s),0,0);
-          const w=document.createElement('div');
-          w.className='part-preview';
-          w.appendChild(p);
-          cont.appendChild(w);
+    function generateWithAI() {
+      const prompt = document.getElementById('aiPrompt').value;
+      const colors = {
+        'lava cave': '#ff4400', 'forest ruins': '#228B22',
+        'water temple': '#0077be', 'ice mountain': '#b0e0e6',
+        'sky castle': '#d8bfd8'
+      };
+      const [w, h] = modeSizes[document.getElementById('mode').value];
+      canvas.width = w;
+      canvas.height = h;
+      ctx.fillStyle = colors[prompt] || '#888';
+      ctx.fillRect(0, 0, w, h);
+      updatePreviewTiles();
+      showMsg(`Escena generada: ${prompt}`);
+    }
+
+    function updatePreviewTiles() {
+      const cont = document.getElementById('previewParts');
+      cont.innerHTML = '';
+      const tileSize = 16;
+      for (let y = 0; y < canvas.height; y += tileSize) {
+        for (let x = 0; x < canvas.width; x += tileSize) {
+          const tile = document.createElement('canvas');
+          tile.width = tileSize;
+          tile.height = tileSize;
+          tile.getContext('2d').putImageData(ctx.getImageData(x, y, tileSize, tileSize), 0, 0);
+          const wrap = document.createElement('div');
+          wrap.className = 'part-preview';
+          wrap.appendChild(tile);
+          cont.appendChild(wrap);
         }
       }
     }
 
-    btnExport.addEventListener('mousedown', e=>{ if(e.ctrlKey) secretMode=true; });
-    btnExport.addEventListener('mouseup', ()=>{ setTimeout(()=>secretMode=false,200); });
-    btnExport.addEventListener('click', e=>{
-      const link=document.createElement('a');
-      link.download = secretMode?'rip_smexgfx.png':'rip_exgfx.png';
-      link.href=canvas.toDataURL('image/png');
+    document.getElementById('exportBtn').addEventListener('mousedown', e => {
+      if (e.ctrlKey) secretMode = true;
+    });
+    document.getElementById('exportBtn').addEventListener('mouseup', () => {
+      setTimeout(() => secretMode = false, 200);
+    });
+    document.getElementById('exportBtn').addEventListener('click', () => {
+      const link = document.createElement('a');
+      link.download = secretMode ? 'exgfx_secret.png' : 'exgfx.png';
+      link.href = canvas.toDataURL('image/png');
       link.click();
-      showMsg(secretMode?'Secret: PNG ExGFX (presente)':'PNG ExGFX descargado');
+      showMsg(secretMode ? '¡Modo secreto activado!' : 'Imagen exportada como PNG');
     });
 
-    function showMsg(t){ document.getElementById('message').innerText=t; }
+    function showMsg(msg) {
+      document.getElementById('message').innerText = msg;
+    }
   </script>
 </body>
 </html>
