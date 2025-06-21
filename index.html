@@ -62,7 +62,7 @@
     }
     #message {
       margin-top: 0.5em;
-      font-size: 0.75em;
+      font-size: 0.65em;
       color: #222;
     }
     #previewParts {
@@ -83,95 +83,6 @@
       height: auto;
     }
   </style>
-  <script>
-    function countColors(imgData) {
-      const colorSet = new Set();
-      for (let i = 0; i < imgData.data.length; i += 4) {
-        const r = imgData.data[i];
-        const g = imgData.data[i + 1];
-        const b = imgData.data[i + 2];
-        const a = imgData.data[i + 3];
-        if (a > 0) {
-          colorSet.add(`${r},${g},${b}`);
-        }
-      }
-      return colorSet.size;
-    }
-
-    function reduceColors(ctx, width, height, maxColors = 15) {
-      let imgData = ctx.getImageData(0, 0, width, height);
-      let currentColors = countColors(imgData);
-      let step = 1;
-
-      while (currentColors > maxColors && step < 64) {
-        for (let i = 0; i < imgData.data.length; i += 4) {
-          imgData.data[i] = Math.floor(imgData.data[i] / step) * step;
-          imgData.data[i + 1] = Math.floor(imgData.data[i + 1] / step) * step;
-          imgData.data[i + 2] = Math.floor(imgData.data[i + 2] / step) * step;
-        }
-        ctx.putImageData(imgData, 0, 0);
-        imgData = ctx.getImageData(0, 0, width, height);
-        currentColors = countColors(imgData);
-        step++;
-      }
-      return currentColors;
-    }
-
-    function handleImageUpload(event) {
-      const file = event.target.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = function(e) {
-        const img = new Image();
-        img.onload = function() {
-          const canvas = document.getElementById("optimizedCanvas");
-          const ctx = canvas.getContext("2d");
-          canvas.width = img.width;
-          canvas.height = img.height;
-          ctx.drawImage(img, 0, 0);
-          const finalColors = reduceColors(ctx, canvas.width, canvas.height);
-
-          document.getElementById("message").innerText = `✅ Imagen optimizada. Total colores únicos: ${finalColors}`;
-
-          // Sección de recorte automático (simple)
-          const partsDiv = document.getElementById("previewParts");
-          partsDiv.innerHTML = "";
-          const partWidth = 256;
-          const partHeight = 256;
-          let partIndex = 1;
-          for (let y = 0; y < canvas.height; y += partHeight) {
-            for (let x = 0; x < canvas.width; x += partWidth) {
-              const partCanvas = document.createElement("canvas");
-              partCanvas.width = partWidth;
-              partCanvas.height = partHeight;
-              const partCtx = partCanvas.getContext("2d");
-              partCtx.drawImage(canvas, x, y, partWidth, partHeight, 0, 0, partWidth, partHeight);
-
-              const previewDiv = document.createElement("div");
-              previewDiv.className = "part-preview";
-              const label = document.createElement("div");
-              label.textContent = `Parte ${partIndex}`;
-              const downloadBtn = document.createElement("button");
-              downloadBtn.textContent = "Descargar";
-              downloadBtn.onclick = function() {
-                const a = document.createElement("a");
-                a.href = partCanvas.toDataURL();
-                a.download = `parte_${partIndex}.png`;
-                a.click();
-              };
-              previewDiv.appendChild(label);
-              previewDiv.appendChild(partCanvas);
-              previewDiv.appendChild(downloadBtn);
-              partsDiv.appendChild(previewDiv);
-              partIndex++;
-            }
-          }
-        };
-        img.src = e.target.result;
-      };
-      reader.readAsDataURL(file);
-    }
-  </script>
 </head>
 <body>
   <header>SMW Pixel Designer</header>
@@ -181,7 +92,7 @@
       <h3>Diseñador de Backgrounds / FG</h3>
       <input type="file" accept="image/*" onchange="handleImageUpload(event)">
       <label>Modo:</label>
-      <select id="mode">
+      <select id="mode" onchange="updateOptimizedSize()">
         <option value="fg_256">FG (256x256)</option>
         <option value="fg_512">FG (512x256)</option>
         <option value="fg_512s">FG (512x512)</option>
@@ -192,6 +103,13 @@
       <label>Reducción de color:</label>
       <input type="range" id="quant" min="1" max="64" value="16">
       <button onclick="fullSmartOptimization()">Optimización Total</button>
+      <label>Filtro artístico:</label>
+      <select id="filter">
+        <option value="none">Ninguno</option>
+        <option value="megaman">Megaman</option>
+        <option value="dk">Donkey Kong</option>
+        <option value="classic">Clásico</option>
+      </select>
       <label>Generar con IA (Escena):</label>
       <select id="aiPrompt">
         <option value="lava cave">Cueva de Lava</option>
@@ -207,9 +125,14 @@
 
     <div class="panel">
       <h3>Vista Previa</h3>
+      <label>Original</label>
+      <canvas id="originalCanvas" width="256" height="256"></canvas>
       <label>Optimizada</label>
-      <canvas id="optimizedCanvas"></canvas>
+      <canvas id="optimizedCanvas" width="256" height="256"></canvas>
+      <button onclick="downloadOptimizedCanvas()">Descargar Optimizada</button>
     </div>
   </div>
+
+  <script src="script.js"></script>
 </body>
 </html>
