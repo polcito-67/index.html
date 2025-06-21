@@ -100,7 +100,7 @@
         <option value="bg_1024">BG (1024x512)</option>
         <option value="bg_1024s">BG (1024x1024)</option>
       </select>
-      <label>Reducción de color:</label>
+      <label>Reducción de color automática</label>
       <input type="range" id="quant" min="1" max="64" value="16">
       <button onclick="fullSmartOptimization()">Optimización Total</button>
       <label>Generar con IA (Escena):</label>
@@ -112,6 +112,13 @@
         <option value="sky castle">Castillo en el Cielo</option>
       </select>
       <button onclick="generateWithAI()">Generar Imagen SMW (IA)</button>
+      <label>Filtro Estético:</label>
+      <select id="filter">
+        <option value="none">Ninguno</option>
+        <option value="retro">Retro / Clásico</option>
+        <option value="megaman">Estilo MegaMan</option>
+        <option value="dk">Estilo Donkey Kong</option>
+      </select>
       <div id="message"></div>
       <div id="previewParts"></div>
     </div>
@@ -119,87 +126,12 @@
     <div class="panel">
       <h3>Vista Previa</h3>
       <label>Original</label>
-      <canvas id="originalCanvas"></canvas>
+      <canvas id="originalCanvas" width="256" height="256"></canvas>
       <label>Optimizada</label>
-      <canvas id="optimizedCanvas"></canvas>
+      <canvas id="optimizedCanvas" width="256" height="256"></canvas>
+      <button onclick="downloadOptimizedImage()">Descargar Optimizada</button>
     </div>
   </div>
-
-  <script>
-    let uploadedImage = null;
-
-    function handleImageUpload(event) {
-      const file = event.target.files[0];
-      if (!file) return;
-
-      const reader = new FileReader();
-      reader.onload = function (e) {
-        const img = new Image();
-        img.onload = function () {
-          const canvas = document.getElementById('originalCanvas');
-          canvas.width = img.width;
-          canvas.height = img.height;
-          const ctx = canvas.getContext('2d');
-          ctx.clearRect(0, 0, canvas.width, canvas.height);
-          ctx.drawImage(img, 0, 0);
-          uploadedImage = img;
-        };
-        img.src = e.target.result;
-      };
-      reader.readAsDataURL(file);
-    }
-
-    function fullSmartOptimization() {
-      if (!uploadedImage) return alert("Primero sube una imagen.");
-
-      const mode = document.getElementById("mode").value;
-      const quant = parseInt(document.getElementById("quant").value);
-      const canvas = document.getElementById("optimizedCanvas");
-      const ctx = canvas.getContext("2d");
-
-      canvas.width = uploadedImage.width;
-      canvas.height = uploadedImage.height;
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(uploadedImage, 0, 0);
-
-      // TODO: Implementar reducción de color según quant y filtros si es necesario
-      // Aquí se pueden agregar más funcionalidades como filtros o corte automático
-
-      // Generar miniaturas por partes si la imagen es muy grande
-      const partsContainer = document.getElementById("previewParts");
-      partsContainer.innerHTML = "";
-      const maxTileHeight = 512; // simula límite compatible
-      for (let y = 0; y < canvas.height; y += maxTileHeight) {
-        const partCanvas = document.createElement("canvas");
-        const partCtx = partCanvas.getContext("2d");
-        partCanvas.width = canvas.width;
-        partCanvas.height = Math.min(maxTileHeight, canvas.height - y);
-        partCtx.drawImage(canvas, 0, y, canvas.width, partCanvas.height, 0, 0, canvas.width, partCanvas.height);
-
-        const wrapper = document.createElement("div");
-        wrapper.className = "part-preview";
-        wrapper.innerHTML = `<div>Parte ${(y / maxTileHeight) + 1}</div>`;
-        wrapper.appendChild(partCanvas);
-        const downloadBtn = document.createElement("button");
-        downloadBtn.textContent = "Descargar";
-        downloadBtn.onclick = () => {
-          const link = document.createElement("a");
-          link.download = `parte_${y}.png`;
-          link.href = partCanvas.toDataURL();
-          link.click();
-        };
-        wrapper.appendChild(downloadBtn);
-        partsContainer.appendChild(wrapper);
-      }
-    }
-
-    function generateWithAI() {
-      alert("Funcionalidad IA aún no disponible en esta demo.");
-    }
-  </script>
-</body>
-</html>
-
 
   <script src="script.js"></script>
 </body>
